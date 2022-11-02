@@ -420,7 +420,9 @@ export class Worker {
           : {}),
       },
     });
+    Runtime.instance().logger.info("Running get or create bundle");
     const bundle = await this.getOrCreateBundle(compiledOptions, Runtime.instance().logger);
+    Runtime.instance().logger.info("Finished get or creating bundle");
     let workflowCreator: WorkflowCreator | undefined = undefined;
     if (bundle) {
       workflowCreator = await this.createWorkflowCreator(bundle, compiledOptions);
@@ -1261,7 +1263,6 @@ export class Worker {
                 this.log.error('Failed to activate workflow', {
                   ...(state ? workflowLogAttributes(state.info) : { runId: activation.runId }),
                   error,
-                  stack: error.stack(),
                   workflowExists: state !== undefined,
                 });
                 const completion = coresdk.workflow_completion.WorkflowActivationCompletion.encodeDelimited({
@@ -1741,20 +1742,25 @@ export interface WorkflowBundleWithSourceMapAndFilename {
 }
 
 export function parseWorkflowCode(code: string, codePath?: string): WorkflowBundleWithSourceMapAndFilename {
+  Runtime.instance().logger.info("Starting extract source map");
   const [actualCode, sourceMapJson] = extractSourceMap(code);
   const sourceMap: RawSourceMap = JSON.parse(sourceMapJson);
+  Runtime.instance().logger.info("Finished extracting source map")
 
   // JS debuggers (at least VSCode's) have a few requirements regarding the script and its source map, notably:
   // - The script file name's must look like an absolute path (relative paths are treated as node internals scripts)
   // - If the script contains a sourceMapURL directive, the executable 'file' indicated by the source map must match the
   //   filename of the script itself. If the source map's file is a relative path, then it gets resolved relative to cwd
   const filename = path.resolve(process.cwd(), codePath ?? sourceMap.file);
+  Runtime.instance().logger.info("Getting code");
   if (filename !== codePath) {
     sourceMap.file = filename;
     const patchedSourceMapJson = Buffer.from(JSON.stringify(sourceMap)).toString('base64');
     const fixedSourceMappingUrl = `\n//# sourceMappingURL=data:application/json;base64,${patchedSourceMapJson}`;
     code = actualCode + fixedSourceMappingUrl;
   }
+
+  Runtime.instance().logger.info("Finished getting code");
 
   // Preloading the script makes breakpoints significantly more reliable and more responsive
   let script: vm.Script | undefined = new vm.Script(code, { filename });
