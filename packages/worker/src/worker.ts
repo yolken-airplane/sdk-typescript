@@ -1261,7 +1261,6 @@ export class Worker {
                 this.log.error('Failed to activate workflow', {
                   ...(state ? workflowLogAttributes(state.info) : { runId: activation.runId }),
                   error,
-                  stack: error.stack(),
                   workflowExists: state !== undefined,
                 });
                 const completion = coresdk.workflow_completion.WorkflowActivationCompletion.encodeDelimited({
