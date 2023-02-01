@@ -425,13 +425,17 @@ export class Worker {
     Runtime.instance().logger.info("Finished get or creating bundle");
     let workflowCreator: WorkflowCreator | undefined = undefined;
     if (bundle) {
+      Runtime.instance().logger.info("Creating workflow creator");
       workflowCreator = await this.createWorkflowCreator(bundle, compiledOptions);
     }
+
+    Runtime.instance().logger.info("Creating connection");
     // Create a new connection if one is not provided with no CREATOR reference
     // so it can be automatically closed when this Worker shuts down.
     const connection = options.connection ?? (await InternalNativeConnection.connect());
     let nativeWorker: NativeWorkerLike;
     try {
+      Runtime.instance().logger.info("Creating native worker");
       nativeWorker = await nativeWorkerCtor.create(connection, addBuildIdIfMissing(compiledOptions, bundle?.code));
     } catch (err) {
       // We just created this connection, close it
@@ -440,6 +444,7 @@ export class Worker {
       }
       throw err;
     }
+    Runtime.instance().logger.info("Extracting reference holders");
     extractReferenceHolders(connection).add(nativeWorker);
     return new this(nativeWorker, workflowCreator, compiledOptions, connection);
   }
@@ -451,8 +456,10 @@ export class Worker {
     // This isn't required for vscode, only for Chrome Dev Tools which doesn't support debugging worker threads.
     // We also rely on this in debug-replayer where we inject a global variable to be read from workflow context.
     if (compiledOptions.debugMode) {
+      Runtime.instance().logger.info("Starting VMWorkflowCreator");
       return await VMWorkflowCreator.create(workflowBundle, compiledOptions.isolateExecutionTimeoutMs);
     } else {
+      Runtime.instance().logger.info("Starting ThreadedVMWorkflowCreator");
       return await ThreadedVMWorkflowCreator.create({
         workflowBundle,
         threadPoolSize: compiledOptions.workflowThreadPoolSize,
@@ -1770,6 +1777,8 @@ export function parseWorkflowCode(code: string, codePath?: string): WorkflowBund
   } catch (e) {
     // Context has not been properly configured, so eventual errors are possible. Just ignore at this point
   }
+
+  Runtime.instance().logger.info("Finished running script");
 
   // Keep these objects from GC long enough for debugger to complete parsing the source map and reporting locations
   // to the node process. Otherwise, the debugger risks source mapping resolution errors, meaning breakpoints wont work.

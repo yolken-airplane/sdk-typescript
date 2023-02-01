@@ -216,8 +216,10 @@ export class VMWorkflowCreator implements WorkflowCreator {
     workflowBundle: WorkflowBundleWithSourceMapAndFilename,
     isolateExecutionTimeoutMs: number
   ): Promise<InstanceType<T>> {
+    console.log(`Creating script and sourcemapconsumer for file ${workflowBundle.filename}`);
     const script = new vm.Script(workflowBundle.code, { filename: workflowBundle.filename });
     const sourceMapConsumer = await new SourceMapConsumer(workflowBundle.sourceMap);
+    console.log("Created sourceMapConsumer");
 
     let currentStackTrace: FileLocation[] | undefined = undefined;
 
@@ -261,11 +263,15 @@ export class VMWorkflowCreator implements WorkflowCreator {
       return `${err}\n${converted.join('\n')}`;
     };
 
+    console.log("Created Error.prepareStackTrace");
+
     // Track Promise aggregators like `race` and `all` to link their internally created promises
     let currentAggregation: Promise<unknown> | undefined = undefined;
 
     // This also is set globally for the isolate which unless the worker is run in debug mode is insignificant
     if (promiseHooks) {
+      console.log("Creating promise hooks");
+
       // Node >=16.14 only
       promiseHooks.createHook({
         init(promise: Promise<unknown>, parent: Promise<unknown>) {
@@ -326,6 +332,8 @@ export class VMWorkflowCreator implements WorkflowCreator {
         },
       });
     }
+
+    console.log("Returning this script");
 
     return new this(script, workflowBundle.sourceMap, isolateExecutionTimeoutMs) as InstanceType<T>;
   }

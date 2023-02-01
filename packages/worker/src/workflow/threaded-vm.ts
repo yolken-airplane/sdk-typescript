@@ -12,6 +12,7 @@
 import { coresdk } from '@temporalio/proto';
 import { IllegalStateError, SinkCall } from '@temporalio/workflow';
 import { Worker as NodeWorker } from 'worker_threads';
+import { Runtime } from '../runtime';
 import { UnexpectedError } from '../errors';
 import { WorkflowBundleWithSourceMapAndFilename } from '../worker';
 import { Workflow, WorkflowCreateOptions, WorkflowCreator } from './interface';
@@ -55,6 +56,7 @@ export class WorkerThreadClient {
 
   constructor(protected workerThread: NodeWorker) {
     workerThread.on('message', ({ requestId, result }: WorkerThreadResponse) => {
+      console.log("Worker thread on message");
       const completion = this.requestIdToCompletion.get(requestId);
       if (completion === undefined) {
         throw new IllegalStateError(`Got completion for unknown requestId ${requestId}`);
@@ -95,6 +97,7 @@ export class WorkerThreadClient {
   async send(input: WorkerThreadInput): Promise<WorkerThreadOutput> {
     const requestId = this.requestIdx++;
     const request: WorkerThreadRequest = { requestId, input };
+    console.log("Posting message");
     this.workerThread.postMessage(request);
     const promise = new Promise<WorkerThreadOutput>((resolve, reject) => {
       this.requestIdToCompletion.set(requestId, { resolve, reject });
@@ -140,12 +143,14 @@ export class ThreadedVMWorkflowCreator implements WorkflowCreator {
     workflowBundle,
     isolateExecutionTimeoutMs,
   }: ThreadedVMWorkflowCreatorOptions): Promise<ThreadedVMWorkflowCreator> {
+    Runtime.instance().logger.info(`Starting workerThreadClients with ${threadPoolSize}`);
     const workerThreadClients = Array(threadPoolSize)
       .fill(0)
       .map(() => new WorkerThreadClient(new NodeWorker(require.resolve('./workflow-worker-thread'))));
     await Promise.all(
       workerThreadClients.map((client) => client.send({ type: 'init', workflowBundle, isolateExecutionTimeoutMs }))
     );
+    Runtime.instance().logger.info("Finished initializing workers");
     return new this(workerThreadClients);
   }
 

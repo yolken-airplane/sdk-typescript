@@ -474,7 +474,7 @@ export function addDefaultWorkerOptions(options: WorkerOptions): WorkerOptionsWi
     defaultHeartbeatThrottleInterval: '30s',
     // 4294967295ms is the maximum allowed time
     isolateExecutionTimeout: debugMode ? '4294967295ms' : '5s',
-    workflowThreadPoolSize: 8,
+    workflowThreadPoolSize: 2,
     maxCachedWorkflows:
       maxCachedWorkflows ?? Math.floor(Math.max(v8.getHeapStatistics().heap_size_limit / GiB - 1, 1) * 250),
     enableSDKTracing: false,
